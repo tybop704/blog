@@ -1,0 +1,182 @@
+import pygame
+import random
+import os
+
+# Initialize Pygame
+pygame.init()
+
+# Constants
+SCREEN_WIDTH, SCREEN_HEIGHT = 800, 600
+FPS = 60
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+BLUE = (0, 0, 255)
+GRAY = (128, 128, 128)
+BROWN = (128, 64, 0)
+GREEN = (0, 255, 0)
+RED = (255, 0, 0)
+WOOD_COLOR = (139, 69, 19)
+STONE_COLOR = (169, 169, 169)
+
+# Setup screen
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+pygame.display.set_caption("2D Survival Game")
+clock = pygame.time.Clock()
+
+# Load assets (Check if files exist first)
+def load_image(image_path):
+    if os.path.exists(image_path):
+        return pygame.image.load(image_path)
+    else:
+        print(f"Error: {image_path} not found!")
+        pygame.quit()
+        exit()
+
+background = load_image("forest_background.png")
+background = pygame.transform.scale(background, (SCREEN_WIDTH, SCREEN_HEIGHT))
+
+# Player Class
+class Player:
+    def __init__(self):
+        self.image = load_image("player.png")  # Load sprite
+        self.image = pygame.transform.scale(self.image, (40, 40))
+        self.rect = self.image.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+        self.speed = 5
+        self.health = 100  # Starting health
+        self.resources = {"wood": 0, "stone": 0}  # Starting resources
+    
+    def update(self):
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_LEFT]:
+            self.rect.x -= self.speed
+        if keys[pygame.K_RIGHT]:
+            self.rect.x += self.speed
+        if keys[pygame.K_UP]:
+            self.rect.y -= self.speed
+        if keys[pygame.K_DOWN]:
+            self.rect.y += self.speed
+        # Keep player inside screen bounds
+        self.rect.x = max(0, min(self.rect.x, SCREEN_WIDTH - self.rect.width))
+        self.rect.y = max(0, min(self.rect.y, SCREEN_HEIGHT - self.rect.height))
+
+    def draw(self, surface):
+        surface.blit(self.image, self.rect)
+
+    def gather_resources(self, resource_type):
+        if resource_type == "wood":
+            self.resources["wood"] += 1
+        elif resource_type == "stone":
+            self.resources["stone"] += 1
+
+# Resource Class (Wood and Stone)
+class Resource:
+    def __init__(self, resource_type, x, y):
+        self.resource_type = resource_type
+        self.x = x
+        self.y = y
+        self.size = 20  # Size of resource
+        if resource_type == "wood":
+            self.color = WOOD_COLOR
+        elif resource_type == "stone":
+            self.color = STONE_COLOR
+    
+    def draw(self, surface):
+        pygame.draw.rect(surface, self.color, (self.x, self.y, self.size, self.size))
+
+# Start Screen Function
+def start_screen():
+    font = pygame.font.Font(None, 50)
+    title_text = font.render("2D Survival Game", True, WHITE)
+    start_text = font.render("Press ENTER to Start", True, WHITE)
+    
+    running = True
+    while running:
+        screen.fill(BLACK)
+        screen.blit(title_text, (SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2 - 50))
+        screen.blit(start_text, (SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2 + 20))
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                exit()
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
+                running = False  # Start the game
+                
+        pygame.display.flip()
+        clock.tick(FPS)
+
+# Game Over Screen
+def game_over_screen(score):
+    font = pygame.font.Font(None, 50)
+    game_over_text = font.render("GAME OVER", True, WHITE)
+    score_text = font.render(f"Score: {score}", True, WHITE)
+    
+    running = True
+    while running:
+        screen.fill(BLACK)
+        screen.blit(game_over_text, (SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2 - 50))
+        screen.blit(score_text, (SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2 + 20))
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                exit()
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
+                running = False  # Restart the game
+
+        pygame.display.flip()
+        clock.tick(FPS)
+
+# Main Game Loop
+def main():
+    player = Player()
+    resources = [Resource("wood", random.randint(50, 750), random.randint(50, 550)) for _ in range(5)]
+    resources += [Resource("stone", random.randint(50, 750), random.randint(50, 550)) for _ in range(5)]  # Add stones
+    score = 0
+    running = True
+    
+    while running:
+        screen.blit(background, (0, 0))  # Draw background
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+        
+        player.update()
+
+        # Check for resource gathering (colliding with resources)
+        for resource in resources:
+            if player.rect.colliderect(pygame.Rect(resource.x, resource.y, resource.size, resource.size)):
+                player.gather_resources(resource.resource_type)
+                resources.remove(resource)  # Remove the resource after gathering
+                # Respawn resource elsewhere
+                if resource.resource_type == "wood":
+                    resources.append(Resource("wood", random.randint(50, 750), random.randint(50, 550)))
+                elif resource.resource_type == "stone":
+                    resources.append(Resource("stone", random.randint(50, 750), random.randint(50, 550)))
+        
+        # Draw resources
+        for resource in resources:
+            resource.draw(screen)
+
+        # Draw player
+        player.draw(screen)
+
+        # Display Health and Resources
+        font = pygame.font.Font(None, 30)
+        health_text = font.render(f"Health: {player.health}", True, WHITE)
+        wood_text = font.render(f"Wood: {player.resources['wood']}", True, WHITE)
+        stone_text = font.render(f"Stone: {player.resources['stone']}", True, WHITE)
+        screen.blit(health_text, (10, 10))
+        screen.blit(wood_text, (10, 40))
+        screen.blit(stone_text, (10, 70))
+
+        pygame.display.flip()
+        clock.tick(FPS)
+    
+    pygame.quit()
+
+# Run the game
+if __name__ == "__main__":
+    start_screen()
+    main()
